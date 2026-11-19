@@ -24,8 +24,11 @@ Compiled with strict warnings and optimizations (`-O3`, `-flto`, `-Werror`).
 git clone https://github.com/ISMAILSHADOW/ShadowHTTP.git
 cd ShadowHTTP
 
-# Build the server
-clang++ main.cpp connection.cpp socket.cpp -O3 -Wall -Wextra -Wpedantic -Werror -o server
+# 1. Generate the build directory and configuration
+cmake -B build -DCMAKE_BUILD_TYPE=release
 
-# Run the server (Listens on 127.0.0.1:8080)
-./server
+# 2. Compile the project
+cmake --build build
+
+# 3. Run the server
+./build/bin/release
