@@ -24,11 +24,8 @@ Compiled with strict warnings and optimizations (`-O3`, `-flto`, `-Werror`).
 git clone https://github.com/ISMAILSHADOW/ShadowHTTP.git
 cd ShadowHTTP
 
-# 1. Generate the build directory and configuration
-cmake -B build -DCMAKE_BUILD_TYPE=release
+# Build the server
+./build.sh release
 
-# 2. Compile the project
-cmake --build build
-
-# 3. Run the server
-./build/bin/release
+# Run the server
+./build/bin/server
