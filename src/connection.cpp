@@ -55,7 +55,7 @@ void HttpConnection::reset(int socket) {
     m_socket_fd = socket;
     reader.reset(socket);
     writer.reset(socket);
-    state.
+    state.reset();
 }
 
 HttpConnection::~HttpConnection() {
