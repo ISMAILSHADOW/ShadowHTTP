@@ -1,5 +1,4 @@
 #include "socket.h"
-#include "connection.h"
 #include "constants.h"
 #include <cstring>
 #include <iostream>
@@ -80,7 +79,7 @@ bool TcpSocket::start() {
     return true;
 }
 
-HttpConnection TcpSocket::accept_connection() {
+int TcpSocket::accept_connection() {
     struct sockaddr_storage addr;
     socklen_t len = sizeof(addr);
     int sock_fd = accept(m_sock_fd, (struct sockaddr *)&addr, &len);

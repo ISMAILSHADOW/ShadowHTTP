@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "constants.h"
+#include "log.h"
 #include <boost/url.hpp>
 #include <boost/url/grammar/alnum_chars.hpp>
 #include <boost/url/grammar/ci_string.hpp>
@@ -19,16 +20,15 @@ constexpr grammar::lut_chars header_value_charset([](char ch) noexcept {
     return static_cast<unsigned char>(ch) <= 127 && ch != '\0' && ch != '\r' && ch != '\n';
 });
 
-HttpState::HttpState()
-    : host(), content_length(-1), conn_status(ConnectionStatus::NONE), method(HttpMethod::NONE),
-      rt_form(RequestTargetForm::NONE), version(HttpVersion::NONE) {}
-
 HttpParser::HttpParser(std::string_view view) : m_view(view) {}
 
 static bool handle_authority_form(HttpState &state, const std::string_view request_target) {
     state.rt_form = RequestTargetForm::AUTHORITY_FORM;
     auto r = parse_authority(request_target);
-    if (!r) return false;
+    if (!r) {
+        LOG_DEBUG("Failed to parse authority form of request line.");
+        return false;
+    }
     state.auth_view = *r;
     if (state.auth_view.has_userinfo() || state.auth_view.port().empty()) return false;
     return true;
@@ -37,7 +37,10 @@ static bool handle_authority_form(HttpState &state, const std::string_view reque
 static bool handle_origin_form(HttpState &state, const std::string_view request_target) {
     state.rt_form = RequestTargetForm::ORIGIN_FORM;
     auto r = parse_origin_form(request_target);
-    if (!r) return false;
+    if (!r) {
+        LOG_DEBUG("Failed to parse origin form of request line.");
+        return false;
+    }
     state.uri = *r;
     return true;
 }
@@ -53,7 +56,10 @@ static bool handle_absolute_form(HttpState &state, const std::string_view reques
     state.rt_form = RequestTargetForm::ABSOLUTE_FORM;
 
     auto r = parse_absolute_uri(request_target);
-    if (!r) return false;
+    if (!r) {
+        LOG_DEBUG("Failed to parse absolute form of request line.");
+        return false;
+    }
     state.uri = *r;
     if (state.uri.scheme_id() != scheme::http && state.uri.scheme_id() != scheme::https) return false;
     if (!state.uri.has_authority() || state.uri.encoded_host().empty()) return false;
@@ -140,10 +146,14 @@ HttpParserErrorCode HttpParser::parse_headers(HttpState &state) {
             value = value.substr(val_start, val_end - val_start + 1);
         }
 
-        if (header_key_charset.find_if_not(key.data(), key.data() + key.size()) != key.end())
+        if (header_key_charset.find_if_not(key.data(), key.data() + key.size()) != key.end()) {
+            LOG_DEBUG("Invalid character used in header key: %s", key.data());
             return HttpParserErrorCode::BAD_REQUEST;
-        if (header_value_charset.find_if_not(value.data(), value.data() + value.size()) != value.end())
+        }
+        if (header_value_charset.find_if_not(value.data(), value.data() + value.size()) != value.end()) {
+            LOG_DEBUG("Invalid character used in header value: %s", key.data());
             return HttpParserErrorCode::BAD_REQUEST;
+        }
 
         if (grammar::ci_is_equal("content-length", key)) {
             auto r = grammar::parse(value, grammar::unsigned_rule<uint32_t>{});
@@ -172,7 +182,10 @@ HttpParserErrorCode HttpParser::parse_headers(HttpState &state) {
     assert(m_view == "\r\n");
     m_view.remove_prefix(2);
 
-    if (state.version == HttpVersion::HTTP_1_1 && state.host.empty()) return HttpParserErrorCode::BAD_REQUEST;
+    if (state.version == HttpVersion::HTTP_1_1 && state.host.empty()) {
+        LOG_DEBUG("No host header was added.");
+        return HttpParserErrorCode::BAD_REQUEST;
+    }
     if (state.conn_status == ConnectionStatus::NONE) {
         state.conn_status =
             (state.version == HttpVersion::HTTP_1_1) ? ConnectionStatus::KEEP_ALIVE : ConnectionStatus::CLOSE;

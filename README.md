@@ -12,7 +12,6 @@ The core focus of this server is performance and low memory foortprint achieved 
 - Zero-dependency (C++ Standard Library & POSIX APIs only).
 
 ## Roadmap / Known Issues
-- Implement HTTP Request Line tokenizer (Method, URI, HTTP Version).
 - Migrate from blocking `accept()` and `recv()` to an `epoll` based event loop for concurrent connection handling.
 - Add a multithreaded worker pool and task queue to decouple connection handling from request processing.
 

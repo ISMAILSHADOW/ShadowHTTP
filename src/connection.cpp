@@ -1,5 +1,7 @@
 #include "connection.h"
 #include "constants.h"
+#include "log.h"
+#include "parser.h"
 #include <cassert>
 #include <cstdio>
 #include <cstring>
@@ -9,13 +11,29 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-HttpConnection::HttpConnection(int socket) : m_sock_fd{socket}, reader(socket) {}
+HttpConnection::HttpConnection() : m_socket_fd{-1} {}
 
 HttpConnErrorCode HttpConnection::receive() {
     std::string_view view;
     if (auto ret = reader.read_until_headers_done(view); ret != HttpReaderErrorCode::OK) {
         std::cerr << "TcpConnection::receive() Error " << (int)ret << std::endl;
         return HttpConnErrorCode::CONNECTION_CLOSED;
+    }
+
+    HttpParser parser(view);
+    if (auto ret = parser.parse_request_line(state); ret != HttpParserErrorCode::OK) {
+        std::cerr << "Failed to parse request line: " << (int)ret << std::endl;
+        return HttpConnErrorCode::CONNECTION_CLOSED;
+    }
+
+    if (auto ret = parser.parse_headers(state); ret != HttpParserErrorCode::OK) {
+        std::cerr << "Failed to parse request headers: " << (int)ret << std::endl;
+        return HttpConnErrorCode::CONNECTION_CLOSED;
+    }
+
+    std::cout << "Path: " << state.uri.path() << std::endl;
+
+    if (writer.open_file(state.uri.path())) {
     }
 
     std::cout << "Received " << view.size() << " Bytes" << std::endl;
@@ -25,17 +43,26 @@ HttpConnErrorCode HttpConnection::receive() {
     std::string buf =
         "HTTP/1.1 200 OK\r\nServer: Apache/2.4.41 (Ubuntu)\r\nContent-Length: " + std::to_string(body.size()) +
         "\r\nConnection: keep-alive\r\n\r\n" + body;
-    send(m_sock_fd, buf.data(), buf.size(), 0);
+    send(m_socket_fd, buf.data(), buf.size(), 0);
     return HttpConnErrorCode::OK;
 }
 
-bool HttpConnection::operator==(const HttpConnection &other) const { return m_sock_fd == other.m_sock_fd; }
-bool HttpConnection::operator==(const int other) const { return m_sock_fd == other; }
+bool HttpConnection::operator==(const HttpConnection &other) const { return m_socket_fd == other.m_socket_fd; }
+bool HttpConnection::operator==(const int other) const { return m_socket_fd == other; }
 
-// TODO: Do this properly with move semantics maybe I need to learn that first
-// TcpConnection::~TcpConnection() { close(m_sock_fd); }
+void HttpConnection::reset(int socket) {
+    if (m_socket_fd != -1) close(socket);
+    m_socket_fd = socket;
+    reader.reset(socket);
+    writer.reset(socket);
+    state.
+}
 
-HttpReader::HttpReader(int socket) : m_cursor(buf), m_valid_bytes(0), m_socket_fd(socket) {}
+HttpConnection::~HttpConnection() {
+    if (m_socket_fd != -1) close(m_socket_fd);
+}
+
+HttpReader::HttpReader() : m_cursor(buf), m_valid_bytes(0) {}
 
 void HttpReader::align_buffer() {
     // Just being paranoid to catch bugs early.
@@ -74,6 +101,7 @@ HttpReaderErrorCode HttpReader::read_until_headers_done(std::string_view &view) 
         }
 
         if (m_valid_bytes == READ_CHUNK_SIZE) {
+            LOG_DEBUG("max header size exceeded with not \\r\\n\\r\\r");
             m_valid_bytes = 0;
             m_cursor = buf;
             return HttpReaderErrorCode::HEADER_SIZE_TOO_LARGE;
@@ -82,4 +110,32 @@ HttpReaderErrorCode HttpReader::read_until_headers_done(std::string_view &view) 
                     // learn that later
 
     return HttpReaderErrorCode::OK;
+}
+
+void HttpReader::reset(int socket) {
+    m_socket_fd = socket;
+    m_cursor = buf;
+    m_valid_bytes = 0;
+}
+
+HttpReader::~HttpReader() {}
+
+HttpWriter::HttpWriter() : m_file_fd(-1), m_socket_fd(-1) {}
+
+int HttpWriter::open_file(std::string_view file_path) {
+    (void)file_path;
+    (void)m_file_fd;
+    (void)m_socket_fd;
+    (void)buf;
+    return 0;
+}
+
+void HttpWriter::reset(int socket) {
+    m_socket_fd = socket;
+    if (m_file_fd != -1) close(m_file_fd);
+    m_file_fd = -1;
+}
+
+HttpWriter::~HttpWriter() {
+    if (m_file_fd != -1) close(m_file_fd);
 }

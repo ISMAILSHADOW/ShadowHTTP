@@ -1,6 +1,5 @@
 #pragma once
 
-#include "connection.h"
 #include <netdb.h>
 
 // The class for the server's tcp socket.
@@ -17,7 +16,7 @@ class TcpSocket {
 
     bool start();
 
-    HttpConnection accept_connection();
+    int accept_connection();
 
     ~TcpSocket();
 };

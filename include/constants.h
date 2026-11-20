@@ -13,6 +13,7 @@ inline constexpr size_t MAX_HEADER_LINE_SIZE = KB(8);
 inline constexpr size_t MAX_HEADER_SECTION_SIZE = KB(16);
 inline constexpr size_t MAX_HEADER_COUNT = 64;
 inline constexpr size_t READ_CHUNK_SIZE = KB(16);
+inline constexpr size_t WRITE_CHUNK_SIZE = KB(16);
 inline constexpr size_t MAX_REQUEST_BODY_SIZE = MB(10);
 
 inline constexpr std::string_view HEADERS_SECTION_MARK = "\r\n\r\n";

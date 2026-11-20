@@ -1,7 +1,8 @@
 #pragma once
 
-#include "constants.h"
+#include "state.h"
 #include <cstdint>
+#include <string_view>
 #include <sys/types.h>
 
 enum class HttpReaderErrorCode : std::uint8_t {
@@ -23,26 +24,61 @@ class HttpReader {
     int m_socket_fd;
 
   public:
-    HttpReader(int socket);
+    HttpReader();
+    void reset(int socket);
+
+    HttpReader(const HttpReader &other) = delete;
+    HttpReader(HttpReader &&other) = delete;
+    HttpReader &operator=(const HttpReader &) = delete;
+    HttpReader &operator=(HttpReader &&) = delete;
 
     HttpReaderErrorCode read_until_headers_done(std::string_view &view);
 
     // Moves any leftover data from previous reads to the start of the buffer so the buffer always
     // points to the start of the section we're reading
     void align_buffer();
+
+    ~HttpReader();
+};
+
+class HttpWriter {
+    char buf[WRITE_CHUNK_SIZE];
+    int m_file_fd;
+    int m_socket_fd;
+
+  public:
+    HttpWriter();
+    void reset(int socket);
+
+    HttpWriter(const HttpWriter &other) = delete;
+    HttpWriter(HttpWriter &&other) = delete;
+    HttpWriter &operator=(const HttpWriter &) = delete;
+    HttpWriter &operator=(HttpWriter &&) = delete;
+
+    int open_file(std::string_view file_path);
+
+    ~HttpWriter();
 };
 
 class HttpConnection {
-    int m_sock_fd;
     HttpReader reader;
+    HttpWriter writer;
+    HttpState state;
+    int m_socket_fd;
 
   public:
-    HttpConnection(int socket);
+    HttpConnection();
+
+    HttpConnection(const HttpConnection &other) = delete;
+    HttpConnection(HttpConnection &&other) = delete;
+    HttpConnection &operator=(const HttpConnection &) = delete;
+    HttpConnection &operator=(HttpConnection &&) = delete;
 
     HttpConnErrorCode receive();
+    void reset(int socket);
 
     bool operator==(const HttpConnection &other) const;
     bool operator==(const int other) const;
 
-    // ~TcpConnection();
+    ~HttpConnection();
 };
